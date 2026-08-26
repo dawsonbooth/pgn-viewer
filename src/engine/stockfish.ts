@@ -1,5 +1,5 @@
 // One search at a time: a new position sends stop and waits for bestmove before the next go.
-import { workerTransport, type EngineTransport } from './transport'
+import type { EngineTransport } from './transport'
 import { parseInfo, sideToMove, type Engine, type EngineLine, type EngineOptions } from './uci'
 
 export class StockfishEngine implements Engine {
@@ -13,15 +13,15 @@ export class StockfishEngine implements Engine {
   private readonly depth: number
   private terminated = false
 
-  // The transport is the seam: the WASM worker by default, a scripted one in tests.
+  // The transport is the seam: the WASM worker in the app, a scripted one in tests.
   constructor(
     private readonly opts: EngineOptions,
-    transport?: EngineTransport,
+    transport: EngineTransport,
   ) {
     this.multiPv = opts.multiPv ?? 3
     this.depth = opts.depth ?? 22
     opts.onStatus('loading')
-    this.transport = transport ?? workerTransport()
+    this.transport = transport
     this.transport.onLine(line => this.onLine(line))
     this.transport.onError(message => opts.onStatus('error', message))
     this.send('uci')

@@ -13,13 +13,17 @@ export interface EngineAnalysis {
   depth: number
 }
 
-export type EngineStatus = 'loading' | 'ready' | 'thinking' | 'error'
+export type EngineStatus = 'downloading' | 'loading' | 'ready' | 'thinking' | 'error'
 
 export interface EngineOptions {
   multiPv?: number
   depth?: number
   onAnalysis: (analysis: EngineAnalysis) => void
   onStatus: (status: EngineStatus, detail?: string) => void
+  // reports the one-time engine download; see engine/assets
+  onProgress?: (loaded: number, total: number) => void
+  // abandons that download if the engine is switched off mid-flight
+  signal?: AbortSignal
 }
 
 // What the viewer needs from an engine, whatever is behind it.

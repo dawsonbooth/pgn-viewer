@@ -1,6 +1,7 @@
 import { batch, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
 import { parsePgnStream, type GameRecord, type PgnDocument } from './chess/pgn'
 import { createCursor } from './cursor'
+import { isEngineCached } from './engine/assets'
 import type { Engine, EngineAnalysis, EngineFactory, EngineStatus } from './engine/uci'
 import { fingerprintFile } from './files/fingerprint'
 import {
@@ -14,12 +15,23 @@ export type Orientation = 'white' | 'black'
 export interface ViewerOptions {
   // swapped for a scripted engine in tests and stories
   createEngine?: EngineFactory
+  // Whether switching the engine on has to ask first. Defaults to asking when the real
+  // Stockfish is not in the cache yet; a supplied engine has nothing to download.
+  engineNeedsDownload?: () => Promise<boolean>
 }
 
 // Lazy so Stockfish stays out of the main bundle until the engine is switched on.
 const loadStockfish: EngineFactory = async opts => {
-  const { StockfishEngine } = await import('./engine/stockfish')
-  return new StockfishEngine(opts)
+  const [{ StockfishEngine }, { workerTransport }] = await Promise.all([
+    import('./engine/stockfish'),
+    import('./engine/transport'),
+  ])
+  return new StockfishEngine(opts, await workerTransport(opts))
+}
+
+export interface EngineProgress {
+  loaded: number
+  total: number
 }
 
 export function createViewer(options: ViewerOptions = {}) {
@@ -49,9 +61,12 @@ export function createViewer(options: ViewerOptions = {}) {
   const createEngine = options.createEngine ?? loadStockfish
   const [engineStatus, setEngineStatus] = createSignal<EngineStatus>()
   const [engineDetail, setEngineDetail] = createSignal<string>()
+  const [engineProgress, setEngineProgress] = createSignal<EngineProgress>()
+  const [downloadPrompt, setDownloadPrompt] = createSignal(false)
   const [reported, setReported] = createSignal<EngineAnalysis>()
   let engine: Engine | undefined
   let enginePromise: Promise<Engine> | undefined
+  let engineAbort: AbortController | undefined
 
   // Published only while it still describes the position on the board, so nothing
   // downstream has to check.
@@ -62,6 +77,8 @@ export function createViewer(options: ViewerOptions = {}) {
 
   const ensureEngine = () => {
     if (enginePromise) return enginePromise
+    const abort = new AbortController()
+    engineAbort = abort
     enginePromise = (async () => {
       engine = await createEngine({
         onAnalysis: setReported,
@@ -69,6 +86,8 @@ export function createViewer(options: ViewerOptions = {}) {
           setEngineStatus(s)
           setEngineDetail(detail)
         },
+        onProgress: (loaded, total) => setEngineProgress({ loaded, total }),
+        signal: abort.signal,
       })
       return engine
     })()
@@ -78,12 +97,15 @@ export function createViewer(options: ViewerOptions = {}) {
   createEffect(
     on([engineEnabled, cursor.fen], ([enabled, f]) => {
       if (!enabled) {
+        engineAbort?.abort()
+        engineAbort = undefined
         engine?.terminate()
         engine = undefined
         enginePromise = undefined
         setReported(undefined)
         setEngineStatus(undefined)
         setEngineDetail(undefined)
+        setEngineProgress(undefined)
         return
       }
       if (!f) return
@@ -167,7 +189,21 @@ export function createViewer(options: ViewerOptions = {}) {
   const flip = () => setOrientation(o => (o === 'white' ? 'black' : 'white'))
   const toggleContinuations = () => setShowContinuations(v => !v)
   const toggleComments = () => setShowComments(v => !v)
-  const toggleEngine = () => setEngineEnabled(v => !v)
+  // The engine is a ~7 MB download the first time; ask before spending someone's data,
+  // then never again, because the cache holding it is the record that they said yes.
+  const needsDownload =
+    options.engineNeedsDownload ??
+    (options.createEngine ? async () => false : async () => !(await isEngineCached()))
+  const toggleEngine = () => {
+    if (engineEnabled()) return setEngineEnabled(false)
+    if (downloadPrompt()) return setDownloadPrompt(false)
+    void needsDownload().then(needed => (needed ? setDownloadPrompt(true) : setEngineEnabled(true)))
+  }
+  const confirmEngineDownload = () => {
+    setDownloadPrompt(false)
+    setEngineEnabled(true)
+  }
+  const dismissEngineDownload = () => setDownloadPrompt(false)
 
   return {
     doc,
@@ -191,6 +227,10 @@ export function createViewer(options: ViewerOptions = {}) {
     toggleEngine,
     engineStatus,
     engineDetail,
+    engineProgress,
+    downloadPrompt,
+    confirmEngineDownload,
+    dismissEngineDownload,
     analysis,
     gamesOpen,
     setGamesOpen,

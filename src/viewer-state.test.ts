@@ -32,6 +32,15 @@ function scriptedEngine(respond: Responder = stubEngine) {
 
 const failToStart: EngineFactory = () => Promise.reject(new Error('no WASM here'))
 
+// Stands in for the real factory, which reports the CDN download before the engine exists.
+const reportsDownload =
+  (loaded: number, total: number): EngineFactory =>
+  opts => {
+    opts.onStatus('downloading')
+    opts.onProgress?.(loaded, total)
+    return new StockfishEngine(opts, scriptedTransport(stubEngine))
+  }
+
 // effects and the engine promise settle on the next macrotask
 const settle = () => new Promise(r => setTimeout(r, 0))
 
@@ -187,5 +196,88 @@ describe('engine', () => {
     await settle()
     dispose()
     expect(last().terminated).toBe(true)
+  })
+
+  describe('the engine download prompt', () => {
+    it('asks before downloading and only starts once accepted', async () => {
+      const { createEngine } = scriptedEngine()
+      const { v, dispose } = await openSample({
+        createEngine,
+        engineNeedsDownload: async () => true,
+      })
+      v.toggleEngine()
+      await settle()
+      expect(v.downloadPrompt()).toBe(true)
+      expect(v.engineEnabled()).toBe(false)
+
+      v.confirmEngineDownload()
+      await settle()
+      expect(v.downloadPrompt()).toBe(false)
+      expect(v.engineEnabled()).toBe(true)
+      dispose()
+    })
+
+    it('leaves the engine off when the prompt is dismissed', async () => {
+      const { createEngine } = scriptedEngine()
+      const { v, dispose } = await openSample({
+        createEngine,
+        engineNeedsDownload: async () => true,
+      })
+      v.toggleEngine()
+      await settle()
+      v.dismissEngineDownload()
+      expect(v.downloadPrompt()).toBe(false)
+      expect(v.engineEnabled()).toBe(false)
+      dispose()
+    })
+
+    it('toggling again while the prompt is up dismisses it', async () => {
+      const { createEngine } = scriptedEngine()
+      const { v, dispose } = await openSample({
+        createEngine,
+        engineNeedsDownload: async () => true,
+      })
+      v.toggleEngine()
+      await settle()
+      v.toggleEngine()
+      await settle()
+      expect(v.downloadPrompt()).toBe(false)
+      expect(v.engineEnabled()).toBe(false)
+      dispose()
+    })
+
+    it('does not ask again once the engine is cached', async () => {
+      const { createEngine } = scriptedEngine()
+      const { v, dispose } = await openSample({
+        createEngine,
+        engineNeedsDownload: async () => false,
+      })
+      v.toggleEngine()
+      await settle()
+      expect(v.downloadPrompt()).toBe(false)
+      expect(v.engineEnabled()).toBe(true)
+      dispose()
+    })
+
+    it('reports download progress while the engine loads', async () => {
+      const { v, dispose } = await openSample({
+        createEngine: reportsDownload(3_000_000, 6_000_000),
+      })
+      v.toggleEngine()
+      await settle()
+      expect(v.engineProgress()).toStrictEqual({ loaded: 3_000_000, total: 6_000_000 })
+      dispose()
+    })
+
+    it('forgets the download once the engine is switched off', async () => {
+      const { v, dispose } = await openSample({ createEngine: reportsDownload(1, 2) })
+      v.toggleEngine()
+      await settle()
+      expect(v.engineProgress()).toBeDefined()
+      v.toggleEngine()
+      await settle()
+      expect(v.engineProgress()).toBeUndefined()
+      dispose()
+    })
   })
 })
