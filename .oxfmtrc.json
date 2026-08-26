@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "arrowParens": "avoid",
+  "jsxSingleQuote": false,
+  "quoteProps": "as-needed",
+  "semi": false,
+  "singleQuote": true,
+  "sortImports": {
+    "newlinesBetween": false
+  },
+  "ignorePatterns": ["dist", "storybook-static", "bun.lock"]
+}

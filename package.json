@@ -1,0 +1,45 @@
+{
+  "name": "pgn-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A fast, local-first PGN viewer for the browser.",
+  "license": "Unlicense",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "format": "oxfmt",
+    "lint:format": "oxfmt --check .",
+    "lint:code": "oxlint --deny-warnings",
+    "lint:types": "tsc --noEmit",
+    "lint": "concurrently -g -c auto -n \"format,code,types\" \"bun lint:format\" \"bun lint:code\" \"bun lint:types\"",
+    "test": "vitest",
+    "storybook": "storybook dev",
+    "build-storybook": "storybook build"
+  },
+  "dependencies": {
+    "@lichess-org/chessground": "^10.1.1",
+    "chessops": "^0.15.1",
+    "solid-js": "^1.9.15",
+    "stockfish": "^18.0.8"
+  },
+  "devDependencies": {
+    "@storybook/addon-docs": "^10.5.10",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "latest",
+    "@vitest/browser": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.11",
+    "concurrently": "^10.0.5",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "playwright": "^1.62.1",
+    "storybook": "^10.5.10",
+    "storybook-solidjs-vite": "^10.7.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^4.1.11"
+  }
+}

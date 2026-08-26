@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["unicorn", "typescript", "oxc", "import", "vitest", "jsx-a11y"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "globals": {
+    "Bun": "readonly"
+  },
+  "ignorePatterns": ["dist", "storybook-static", "node_modules"],
+  "rules": {
+    "typescript/no-non-null-assertion": "off",
+    // Side-effect CSS imports are how Vite loads stylesheets.
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    // Sequential awaits are intentional here: reading a stream chunk by chunk, polling a browser.
+    "no-await-in-loop": "off",
+    // Worker.postMessage has no targetOrigin argument; the rule is meant for window.postMessage.
+    "unicorn/require-post-message-target-origin": "off"
+  },
+  "overrides": [
+    {
+      "files": ["vite.config.ts", "vitest.config.ts", "scripts/**", ".storybook/**"],
+      "env": { "node": true }
+    }
+  ]
+}
