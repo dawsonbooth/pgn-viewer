@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { samplePgn as sample } from '../test-utils'
-import { gameLabel, parsePgnStream, pathTo, prepareGame, type GameRecord } from './pgn'
+import {
+  gameLabel,
+  moveText,
+  parsePgnStream,
+  pathTo,
+  prepareGame,
+  shortGameLabel,
+  type GameRecord,
+} from './pgn'
 
 async function parseAll(text: string | Blob): Promise<GameRecord[]> {
   const out: GameRecord[] = []
@@ -66,6 +74,28 @@ describe('gameLabel', () => {
   })
 })
 
+describe('shortGameLabel', () => {
+  it('uses surnames, place and year, and falls back to the full label', () => {
+    const fischer = h({
+      White: 'Fischer, Robert J.',
+      Black: 'Spassky, Boris V.',
+      Site: 'Belgrade, Serbia JUG',
+      Date: '1992.11.04',
+    })
+    expect(shortGameLabel(fischer, 'full')).toEqual({
+      text: 'Fischer – Spassky, Belgrade',
+      year: '1992',
+    })
+    expect(
+      shortGameLabel(h({ White: 'Carlsen', Black: 'Nakamura', Date: '????.??.??' }), 'x'),
+    ).toEqual({ text: 'Carlsen – Nakamura', year: undefined })
+    expect(shortGameLabel(h({ White: '?', Black: '?', Event: 'Fork' }), 'Fork')).toEqual({
+      text: 'Fork',
+      year: undefined,
+    })
+  })
+})
+
 describe('prepareGame', () => {
   it('materialises positions, variations and comments from a FEN start', async () => {
     const [fork] = await parseAll(sample)
@@ -81,6 +111,8 @@ describe('prepareGame', () => {
     expect(branch.children.map(id => g.nodes[id]!.san)).toEqual(['Nxd5', 'Na5'])
     const nxf7 = g.nodes.find(n => n.san === 'Nxf7')!
     expect(nxf7.nags).toEqual([1])
+    expect(moveText(nxf7, true)).toBe('6. Nxf7!')
+    expect(moveText(nxf7, false)).toBe('Nxf7!')
     expect(nxf7.uci).toBe('g5f7')
     expect(nxf7.comments[0]?.shapes).toHaveLength(1)
     expect(pathTo(g, nxf7.id).map(id => g.nodes[id]!.san)).toEqual([

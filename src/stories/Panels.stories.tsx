@@ -1,6 +1,5 @@
 import type { JSX } from 'solid-js'
 import type { Meta, StoryObj } from 'storybook-solidjs-vite'
-import { Commentary } from '../components/Commentary'
 import { EnginePanel } from '../components/EnginePanel'
 import { NavBar } from '../components/NavBar'
 import { Toolbar } from '../components/Toolbar'
@@ -13,24 +12,6 @@ const Pad = (props: { children: JSX.Element }) => (
 
 const meta = { title: 'Panels' } satisfies Meta
 export default meta
-
-export const CommentaryWithNag: StoryObj = {
-  render: () => (
-    <Pad>
-      <WithViewer options={{ ply: 5 }}>{v => <Commentary viewer={v} />}</WithViewer>
-    </Pad>
-  ),
-}
-
-export const CommentaryHidden: StoryObj = {
-  render: () => (
-    <Pad>
-      <WithViewer options={{ ply: 5, comments: false }}>
-        {v => <Commentary viewer={v} />}
-      </WithViewer>
-    </Pad>
-  ),
-}
 
 export const EngineOff: StoryObj = {
   render: () => (
@@ -89,5 +70,5 @@ export const NavMatched = navStory({ game: 1 }, v => v.cursor.play('e2', 'e4'))
 
 export const ToolbarStory: StoryObj = {
   name: 'Toolbar',
-  render: () => <WithViewer>{v => <Toolbar viewer={v} />}</WithViewer>,
+  render: () => <WithViewer>{v => <Toolbar viewer={v} onPaste={() => {}} />}</WithViewer>,
 }

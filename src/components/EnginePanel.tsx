@@ -3,7 +3,7 @@ import { makeSanAndPlay } from 'chessops/san'
 import { createMemo, For, Show } from 'solid-js'
 import { ENGINE_DOWNLOAD_BYTES } from '../engine/assets'
 import { formatScore, type EngineLine } from '../engine/uci'
-import { btnSmall } from '../ui'
+import { btn } from '../ui'
 import type { Viewer } from '../viewer-state'
 
 const PV_MOVES = 8
@@ -53,22 +53,25 @@ export function EnginePanel(props: { viewer: Viewer }) {
           <Show
             when={v.downloadPrompt()}
             fallback={
-              <p class="text-zinc-400">
-                Engine off. Press <kbd class="rounded-sm bg-zinc-800 px-1 font-mono">e</kbd> or use
-                the toggle.
+              <p class="text-ink-2">
+                Engine off. Press{' '}
+                <kbd class="rounded-sm border border-rule-strong bg-surface-2 px-1.5 font-sans font-semibold">
+                  e
+                </kbd>{' '}
+                or use the toggle.
               </p>
             }
           >
-            <div class="engine-consent flex flex-col items-start gap-2">
-              <p class="text-zinc-400">
+            <div class="engine-consent flex flex-col items-start gap-2.5">
+              <p class="text-ink">
                 Stockfish is a {mb(ENGINE_DOWNLOAD_BYTES)} download, fetched once from a public CDN
                 and kept in this browser. Analysis then runs entirely on your device.
               </p>
               <div class="flex gap-1.5">
-                <button type="button" class={btnSmall} onClick={v.confirmEngineDownload}>
+                <button type="button" class={btn} onClick={v.confirmEngineDownload}>
                   Download and enable
                 </button>
-                <button type="button" class={btnSmall} onClick={v.dismissEngineDownload}>
+                <button type="button" class={btn} onClick={v.dismissEngineDownload}>
                   Not now
                 </button>
               </div>
@@ -77,10 +80,13 @@ export function EnginePanel(props: { viewer: Viewer }) {
         }
       >
         <div class="flex items-baseline gap-3">
-          <span class="engine-score font-mono text-2xl font-bold" aria-live="polite">
+          <span
+            class="engine-score text-2xl font-bold tracking-[-0.01em] tabular-nums"
+            aria-live="polite"
+          >
             {best() ? formatScore(best()!) : '…'}
           </span>
-          <span class="text-xs text-zinc-400">
+          <span class="text-sm text-ink-2">
             <Show when={v.engineStatus() === 'downloading'}>
               downloading Stockfish{percent() === undefined ? '' : ` ${percent()}%`}…
             </Show>
@@ -92,18 +98,21 @@ export function EnginePanel(props: { viewer: Viewer }) {
           </span>
         </div>
         <Show when={v.engineStatus() === 'downloading' && percent() !== undefined}>
-          <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
-            <div class="h-full bg-zinc-400 transition-[width]" style={{ width: `${percent()}%` }} />
+          <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-2">
+            <div
+              class="h-full origin-left bg-button transition-transform duration-200"
+              style={{ transform: `scaleX(${percent()! / 100})` }}
+            />
           </div>
         </Show>
-        <ol class="engine-lines mt-2 flex list-none flex-col gap-1 p-0 text-sm">
+        <ol class="engine-lines mt-2 flex list-none flex-col gap-1 p-0 text-[0.9375rem]">
           <For each={lines()}>
             {line => (
               <li class="flex items-baseline gap-2.5">
-                <span class="min-w-[5.5ch] shrink-0 text-right font-mono font-semibold">
+                <span class="min-w-[5.5ch] shrink-0 text-right font-semibold tabular-nums">
                   {formatScore(line)}
                 </span>
-                <span class="truncate">{pvSan(line)}</span>
+                <span class="truncate text-ink">{pvSan(line)}</span>
               </li>
             )}
           </For>

@@ -1,1 +1,151 @@
 @import 'tailwindcss';
+
+/*
+ * Each color is a light-dark() pair. color-scheme picks the side: the OS setting, or
+ * <html data-theme> when the user overrides it (set before paint in index.html).
+ */
+:root {
+  color-scheme: light dark;
+
+  --ground: light-dark(#f6f7f5, #0b1b17);
+  --surface: light-dark(#ffffff, #10231d);
+  --surface-2: light-dark(#eef2f0, #173029);
+  --ink: light-dark(#16181a, #e6ece9);
+  --ink-2: light-dark(#46514c, #b5c4bd);
+  --ink-3: light-dark(#5e6a65, #93a59d);
+  --rule: light-dark(#dce3df, #1f3a32);
+  --rule-strong: light-dark(#c2ccc7, #2d4d43);
+
+  /* top bar, green in both schemes */
+  --shell: light-dark(#0f5c4a, #0c4a3c);
+  --on-shell: #ffffff;
+  --button: light-dark(#0f5c4a, #1f7a60);
+  --button-hover: light-dark(#0b4a3b, #23876a);
+  --on-button: #ffffff;
+
+  /* green text: variation labels, the match check */
+  --brand: light-dark(#0f5c4a, #6fcfa9);
+
+  --accent: #e0a21b;
+  --on-accent: #16181a;
+  --accent-tint: light-dark(#fbefcf, #46370f);
+  --danger: light-dark(#b42318, #f2786c);
+  --focus: light-dark(#0f5c4a, #e0a21b);
+
+  --sq-light: light-dark(#f7f8f4, #c9d3ce);
+  --sq-dark: light-dark(#b3c7bd, #7f988d);
+  --coord: #102a22;
+  --last-move: light-dark(rgb(246 190 60 / 0.5), rgb(240 180 40 / 0.55));
+  --dest: rgb(15 92 74 / 0.5);
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Source Sans 3 Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-shell: var(--shell);
+  --color-on-shell: var(--on-shell);
+  --color-button: var(--button);
+  --color-button-hover: var(--button-hover);
+  --color-on-button: var(--on-button);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-danger: var(--danger);
+  --color-brand: var(--brand);
+  --color-focus: var(--focus);
+}
+
+@layer base {
+  html {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    caret-color: var(--button);
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+  ::selection {
+    background: var(--accent-tint);
+    color: var(--ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  /* the light-scheme green ring would vanish on the green top bar */
+  .on-shell :focus-visible {
+    outline-color: #ffffff;
+  }
+  input,
+  textarea {
+    color: inherit;
+  }
+  ::placeholder {
+    color: var(--ink-3);
+    opacity: 1;
+  }
+}
+
+/* Chessground board theme: replaces chessground.brown.css */
+cg-board {
+  background: conic-gradient(
+      var(--sq-dark) 25%,
+      var(--sq-light) 0 50%,
+      var(--sq-dark) 0 75%,
+      var(--sq-light) 0
+    )
+    0 0 / 25% 25%;
+}
+cg-board square.last-move {
+  background-color: var(--last-move);
+}
+cg-board square.selected {
+  background-color: rgb(15 92 74 / 0.4);
+}
+cg-board square.move-dest {
+  background: radial-gradient(var(--dest) 20%, transparent 0);
+}
+cg-board square.oc.move-dest {
+  background: radial-gradient(transparent 0%, transparent 78%, var(--dest) 78%);
+}
+cg-board square.move-dest:hover {
+  background: rgb(15 92 74 / 0.28);
+}
+cg-board square.check {
+  background: radial-gradient(
+    ellipse at center,
+    rgb(214 40 40 / 1) 0%,
+    rgb(214 40 40 / 0.85) 25%,
+    rgb(214 40 40 / 0) 85%
+  );
+}
+.cg-wrap coords {
+  opacity: 1;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--coord);
+}
+/* chessground offsets file labels 24px right, which clips "h" at a screen edge */
+.cg-wrap coords.files {
+  left: 0;
+  text-transform: none;
+}
+.cg-wrap coords.files coord {
+  padding-right: 3px;
+  text-align: right;
+}

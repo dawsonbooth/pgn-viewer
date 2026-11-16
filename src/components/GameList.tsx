@@ -1,8 +1,9 @@
 import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js'
+import { shortGameLabel } from '../chess/pgn'
 import { btn, input } from '../ui'
 import type { Viewer } from '../viewer-state'
 
-const ROW = 40 // px, must match h-10
+const ROW = 34 // px, must match h-[34px]
 const OVERSCAN = 8
 
 export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
@@ -65,7 +66,7 @@ export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
 
   return (
     <div class="flex min-h-0 w-full flex-1 flex-col">
-      <div class="flex gap-1.5 border-b border-zinc-800 p-2">
+      <div class="flex gap-1.5 border-b border-rule p-2.5">
         <input
           type="search"
           class={`game-filter ${input} flex-1`}
@@ -94,7 +95,7 @@ export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
             max={v.games().length}
             placeholder="#"
             aria-label="Jump to game number"
-            class={`${input} w-16`}
+            class={`${input} w-12`}
           />
           <button type="submit" class={btn} aria-label="Jump to game">
             Go
@@ -117,40 +118,49 @@ export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
               const selected = () => v.selectedIndex() === index()
               return (
                 <Show when={rec()}>
-                  {r => (
-                    <button
-                      type="button"
-                      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- see above
-                      role="option"
-                      class={
-                        'game-row absolute top-0 left-0 flex h-10 w-full cursor-pointer items-center gap-2.5 ' +
-                        'border-b border-zinc-800 px-2.5 text-left hover:bg-zinc-800'
-                      }
-                      classList={{ selected: selected(), 'bg-zinc-800 text-white': selected() }}
-                      aria-selected={selected()}
-                      style={{ transform: `translateY(${row * ROW}px)` }}
-                      title={r().parseError}
-                      onClick={() => {
-                        v.selectGame(index())
-                        props.onSelect?.()
-                      }}
-                    >
-                      <span
-                        class="game-ordinal min-w-[3.5ch] shrink-0 text-right tabular-nums"
-                        classList={{ 'text-zinc-400': !selected() }}
-                      >
-                        {index() + 1}
-                      </span>
-                      <span
-                        class="game-label truncate"
+                  {r => {
+                    const short = () => shortGameLabel(r().game.headers, r().label)
+                    return (
+                      <button
+                        type="button"
+                        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- see above
+                        role="option"
+                        class={
+                          'game-row absolute top-0 left-0 flex h-[34px] w-full cursor-pointer items-center gap-2.5 ' +
+                          'px-3 text-left text-ink'
+                        }
                         classList={{
-                          'underline decoration-red-400 decoration-wavy': !!r().parseError,
+                          selected: selected(),
+                          'bg-accent-tint font-semibold': selected(),
+                          'hover:bg-surface-2': !selected(),
+                        }}
+                        aria-selected={selected()}
+                        style={{ transform: `translateY(${row * ROW}px)` }}
+                        title={r().parseError ?? r().label}
+                        onClick={() => {
+                          v.selectGame(index())
+                          props.onSelect?.()
                         }}
                       >
-                        {r().label}
-                      </span>
-                    </button>
-                  )}
+                        <span class="game-ordinal min-w-[3.5ch] shrink-0 text-right font-semibold text-ink-2 tabular-nums">
+                          {index() + 1}
+                        </span>
+                        <span
+                          class="game-label min-w-0 flex-1 truncate"
+                          classList={{
+                            'underline decoration-danger decoration-wavy': !!r().parseError,
+                          }}
+                        >
+                          {short().text}
+                        </span>
+                        <Show when={short().year}>
+                          <span class="shrink-0 font-normal text-ink-2 tabular-nums">
+                            {short().year}
+                          </span>
+                        </Show>
+                      </button>
+                    )
+                  }}
                 </Show>
               )
             }}
@@ -158,10 +168,10 @@ export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
         </div>
       </div>
       <div
-        class="game-count border-t border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-400 tabular-nums"
+        class="game-count border-t border-rule px-3 py-2 text-sm text-ink-2 tabular-nums"
         aria-live="polite"
       >
-        {v.games().length ? `${v.selectedIndex() + 1} / ${v.games().length}` : '—'}
+        {v.games().length ? `${v.selectedIndex() + 1} of ${v.games().length} games` : 'No games'}
         <Show when={v.doc() && !v.doc()!.complete}> · parsing…</Show>
         <Show when={visible()}> · {count()} match</Show>
       </div>

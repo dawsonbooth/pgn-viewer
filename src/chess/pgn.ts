@@ -43,6 +43,29 @@ export function gameLabel(headers: Map<string, string>, index: number): string {
   return `Game ${index + 1}`
 }
 
+// undefined for PGN's unknown placeholders: "?", "-", "????.??.??"
+export function headerValue(headers: Map<string, string>, key: string): string | undefined {
+  const v = headers.get(key)?.trim()
+  return v && !/^[?\-.]*$/.test(v) ? v : undefined
+}
+
+const surname = (name: string | undefined) => name?.split(',')[0]!.trim()
+
+// Compact list label: surnames and place (or event). The year is returned separately so a
+// narrow list can truncate the text and still show it. Falls back to the full label.
+export function shortGameLabel(
+  headers: Map<string, string>,
+  full: string,
+): { text: string; year?: string } {
+  const get = (k: string) => headerValue(headers, k)
+  const year = get('Date')?.match(/^\d{4}/)?.[0]
+  const white = surname(get('White'))
+  const black = surname(get('Black'))
+  if (!white && !black) return { text: full, year }
+  const place = get('Site')?.split(',')[0]!.trim() ?? get('Event')
+  return { text: `${white ?? '?'} – ${black ?? '?'}${place ? `, ${place}` : ''}`, year }
+}
+
 // Streams the file through chessops' parser; onGames receives each batch so the
 // game list can render before parsing finishes.
 export async function parsePgnStream(
@@ -239,6 +262,12 @@ const NAG_GLYPHS: Record<number, string> = {
 }
 
 export const nagGlyph = (nag: number): string => NAG_GLYPHS[nag] ?? '$' + nag
+
+// "12. Nf3!", "12... Nf6", or without the number "Nf6"
+export function moveText(node: MoveNode, numbered: boolean): string {
+  const number = numbered ? `${node.moveNumber}${node.color === 'white' ? '.' : '...'} ` : ''
+  return number + node.san + node.nags.map(nagGlyph).join('')
+}
 
 // Transient nodes are appended at the end of game.nodes, so discarding them is a truncation.
 export function appendTransientMove(
