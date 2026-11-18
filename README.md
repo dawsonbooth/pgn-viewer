@@ -38,12 +38,43 @@ installed browser). Set `VITEST_BROWSER_CHANNEL` to use another, or run
   else shows "Not in PGN". Reveal shows the next move.
 - Continuations on: legal moves not in the PGN are explored on a transient
   branch (dashed in the move list). Discard drops it. The file is never edited.
-- Comments off hides comments and the arrows/circles embedded in them.
+- Comments off hides comments and everything embedded in them: arrows, square
+  highlights, chess.com classification badges, clocks and evaluations.
+- Hint (with continuations off) shows the hint a chess.com lesson gives for the
+  move to find. After a wrong move the lesson's own reply is shown too.
 - Engine runs Stockfish on the current position, three lines. The first use
   asks before downloading it; after that it starts from the cache, offline.
+- On desktop, drag the games list's right edge to widen it for long titles;
+  double-click the edge to reset it. The width is remembered in the browser.
 
 Keys: `←` `→` moves, `Home` `End`, `[` `]` previous/next game, `f` flip,
-`c` comments, `e` engine, `v` continuations.
+`c` comments, `e` engine, `v` continuations, `h` hint.
+
+### Annotations
+
+The markup that Lichess, chess.com, Chessable, Noctie and ChessBase exports put
+in a PGN:
+
+- **Glyphs**: `!` `?` `!!` `??` `!?` `?!` (`$1`–`$6`) are coloured in the move
+  text and drawn as a badge on the board. Other glyphs (`±`, `N`, …) are plain,
+  with their meaning on hover; a number without a glyph shows as `$n`.
+- **Comment commands**: `%cal` arrows and `%csl` squares (filled, as chess.com
+  and Chessable draw them), `%clk`, `%eval`, and from chess.com lessons `%hint`,
+  `%wrong`, `%c_arrow`, `%c_highlight` and `%c_effect` (Brilliant, Great find and
+  Mistake badges). Other commands (`%emt`, `%evp`, `%mdl`, `%anno`, `%fd`) are
+  removed from the text.
+- **Course markup**: chess.com and Chessable `@@…@@` markers (headings, quotes,
+  links, escaped brackets, and `@@StartFEN@@` positions drawn as small diagrams),
+  `<strong>`, `<br>` and links, and Noctie's Markdown (headings, bold, italics,
+  links, lists).
+- **Null moves** (`--`) and lesson positions without kings are played as
+  written. Stockfish is never asked to analyse them.
+- **Course titles**: a chess.com lesson is listed and titled by its
+  `LessonName`, and a Noctie element by its `ElementName`, rather than by the
+  course name every game shares. A Noctie game's players then sit under the
+  title. Neighbouring games with the same title, such as a lesson's steps or a
+  Chessable course's lines, show their `Round` in the list. The HTML escapes
+  chess.com leaves in headers (`&#039;`, `&amp;`, …) are decoded.
 
 The selected game, position and toggles are saved in IndexedDB, keyed by a
 fingerprint of the file contents.

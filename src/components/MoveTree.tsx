@@ -1,8 +1,21 @@
 import { createEffect, createMemo, For, on, Show, type JSX } from 'solid-js'
-import { moveText, type MoveNode, type PreparedGame } from '../chess/pgn'
+import type { Commentary as Comment } from '../chess/comment'
+import type { MoveNode, PreparedGame } from '../chess/pgn'
+import { continuesSentence } from '../chess/richtext'
 import type { Viewer } from '../viewer-state'
+import { Commentary } from './Commentary'
+import { MoveLabel, spokenMove } from './MoveLabel'
 
-const comment = 'text-ink-2'
+// words or a diagram; a comment that only held commands has nothing to show
+const shows = (c: Comment) => c.blocks.length > 0
+const hasText = (node: MoveNode) => node.comments.some(shows)
+
+// "6... Qb6, although…": a comment that carries on the sentence hugs its move
+function hugsMove(node: MoveNode): boolean {
+  const first = node.comments.find(shows)?.blocks[0]
+  const span = first?.kind === 'paragraph' ? first.spans[0] : undefined
+  return span?.kind === 'text' && continuesSentence(span.text)
+}
 
 // Outline labels for side lines: A, B… off the main line, then A1, A2…, then A1a, A1b…,
 // alternating letters and numbers with depth.
@@ -43,6 +56,7 @@ export function MoveTree(props: { viewer: Viewer }) {
   const v = props.viewer
   const cur = v.cursor
   let container!: HTMLDivElement
+  let hintText: HTMLOutputElement | undefined
 
   createEffect(
     on(
@@ -68,12 +82,12 @@ export function MoveTree(props: { viewer: Viewer }) {
               <Show when={game().setupError}>
                 <p class="text-danger">Invalid starting position: {game().setupError}</p>
               </Show>
-              <Show when={game().root.comments.length && v.showComments()}>
-                <p class={`${comment} mb-2`}>
-                  {game()
-                    .root.comments.map(c => c.text)
-                    .join(' ')}
-                </p>
+              <Show when={hasText(game().root) && v.showComments()}>
+                <Commentary
+                  comments={game().root.comments}
+                  orientation={v.orientation()}
+                  class="mb-2"
+                />
               </Show>
               <Show
                 when={game().root.children.length}
@@ -110,6 +124,46 @@ export function MoveTree(props: { viewer: Viewer }) {
                         <span class="ml-1 rounded-sm bg-surface-2 px-1.5 py-0.5 text-[0.9375rem] font-semibold text-ink-2">
                           Next move hidden
                         </span>
+                        <Show when={cur.hint() && !cur.hintShown()}>
+                          <button
+                            type="button"
+                            class="hint-button ml-1.5 cursor-pointer rounded-sm border border-rule-strong bg-surface px-1.5 text-[0.9375rem] font-semibold text-ink hover:bg-surface-2"
+                            onClick={() => {
+                              cur.showHint()
+                              // the button goes away; focus moves to what it revealed
+                              hintText?.focus()
+                            }}
+                            aria-keyshortcuts="h"
+                            title="h"
+                          >
+                            Hint
+                          </button>
+                        </Show>
+                      </Show>
+                      {/* in place, empty, while a hint is on offer, so that screen readers
+                          announce it when it is filled */}
+                      <Show when={cur.hint()}>
+                        {hint => (
+                          <output
+                            ref={e => (hintText = e)}
+                            tabIndex={-1}
+                            class="hint block text-ink-2"
+                            classList={{ 'mt-2': cur.hintShown() }}
+                          >
+                            <Show when={cur.hintShown()}>
+                              <span class="font-semibold text-ink">Hint:</span> {hint()}
+                            </Show>
+                          </output>
+                        )}
+                      </Show>
+                      {/* a lesson's reply to a move it does not list; it often gives the
+                          idea away, so it is commentary and follows the toggle */}
+                      <Show
+                        when={
+                          v.showComments() && cur.feedback()?.kind === 'mismatch' && cur.wrongNote()
+                        }
+                      >
+                        {note => <output class="wrong-note mt-2 block text-ink-2">{note()}</output>}
                       </Show>
                     </div>
                   )}
@@ -158,7 +212,7 @@ function Line(props: {
           item.node.color === 'white' ||
           i() === 0 ||
           prev()!.variations.length > 0 ||
-          (showComments() && prev()!.node.comments.length > 0)
+          (showComments() && hasText(prev()!.node))
         return (
           <>
             <Move
@@ -205,11 +259,15 @@ function Move(props: {
   main?: boolean
 }): JSX.Element {
   const active = () => props.viewer.cursor.id() === props.node.id
-  const label = () => moveText(props.node, props.needsNumber)
+  const orientation = () => props.viewer.orientation()
   return (
     <>
-      <Show when={props.showComment && props.node.startingComments.length}>
-        <span class={comment}>{props.node.startingComments.map(c => c.text).join(' ')}</span>{' '}
+      <Show when={props.showComment && props.node.startingComments.some(shows)}>
+        <Commentary
+          comments={props.node.startingComments}
+          orientation={orientation()}
+          inline
+        />{' '}
       </Show>
       <button
         type="button"
@@ -224,15 +282,17 @@ function Move(props: {
           'transient italic': !!props.node.transient && active(),
         }}
         aria-current={active() ? 'true' : undefined}
+        aria-label={props.node.nags.length ? spokenMove(props.node, props.needsNumber) : undefined}
         title={
           props.node.error ?? (props.node.transient ? 'Explored move (not in PGN)' : undefined)
         }
         onClick={() => props.viewer.cursor.goTo(props.node.id)}
       >
-        {label()}
-      </button>{' '}
-      <Show when={props.showComment && props.node.comments.some(c => c.text.trim())}>
-        <span class={comment}>{props.node.comments.map(c => c.text).join(' ')}</span>{' '}
+        <MoveLabel node={props.node} numbered={props.needsNumber} plain={active()} />
+      </button>
+      {props.showComment && hugsMove(props.node) ? '' : ' '}
+      <Show when={props.showComment && hasText(props.node)}>
+        <Commentary comments={props.node.comments} orientation={orientation()} inline />{' '}
       </Show>
     </>
   )

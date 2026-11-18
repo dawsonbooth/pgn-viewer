@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { headerValue } from '../chess/pgn'
+import { gamePlayers, headerValue } from '../chess/pgn'
 import type { Viewer } from '../viewer-state'
 
 // Title, then whichever header facts the file has. The result is left out so it can't give
@@ -12,11 +12,14 @@ export function GameHeader(props: { viewer: Viewer }) {
     const r = record()
     if (!r) return []
     const h = (k: string) => headerValue(r.game.headers, k)
+    const players = gamePlayers(r.game.headers)
     const opening = [h('ECO'), [h('Opening'), h('Variation')].filter(Boolean).join(', ')]
       .filter(Boolean)
       .join(' ')
     const round = h('Round')
     return [
+      // when the title is a course's name for the game
+      players !== r.label ? players : undefined,
       opening,
       h('Event') !== r.label ? h('Event') : undefined,
       h('Site'),

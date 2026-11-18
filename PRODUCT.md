@@ -29,7 +29,7 @@ Compared with Lichess studies, chess.com and ChessBase:
 
 - The user brings an existing `.pgn` file, usually an export of a course, book or repertoire. They open it with **Open**, by dropping it on the page, or by pasting the PGN text.
 - Study sessions are resumable. The selected game, position and toggles are saved in IndexedDB, keyed by a fingerprint of the file contents, so reopening the same file returns the user to where they were.
-- Navigation is keyboard-driven on desktop: `←` `→` moves, `Home` `End`, `[` `]` previous/next game, `f` flip, `c` comments, `e` engine, `v` continuations.
+- Navigation is keyboard-driven on desktop: `←` `→` moves, `Home` `End`, `[` `]` previous/next game, `f` flip, `c` comments, `e` engine, `v` continuations, `h` hint.
 - Used on desktop, tablet and phone. On desktop there are three panes (games | board | game text). On a phone the board sits above the game text, or beside it in landscape, and the games list opens as a bottom sheet.
 - Shipped as a static site on GitHub Pages.
 
@@ -37,13 +37,15 @@ Compared with Lichess studies, chess.com and ChessBase:
 
 - **Read-only, always (durable rule).** The viewer never edits, annotates, saves or exports a PGN. Future work must not add editing. Moves explored off the PGN live on a transient branch (shown dashed in the move list) that **Discard** drops. The file itself is never changed.
 - **Self-test loop.** With Continuations off, every move after the current position is hidden. Playing a PGN move advances and auto-plays the reply. Any other move shows "Not in PGN". **Reveal** shows the next move.
-- **Comments toggle.** Turning it off hides comments and the arrows and circles embedded in them.
+- **Comments toggle.** Turning it off hides comments and everything embedded in them: arrows, square highlights, chess.com classification badges, clocks, evaluations and a lesson's reply to a wrong move. Glyphs ($1 and so on) are part of the move and stay.
+- **Annotations.** The viewer shows the markup that Lichess, chess.com, Chessable, Noctie and ChessBase exports put in a PGN: move glyphs, coloured and badged on the board; arrows and filled squares; chess.com's classification badges, hints and wrong-move replies; course headings, quotes, links and diagrams; Markdown. Null moves and lesson positions without kings are played as written, and Stockfish is never asked about a position that is not legal.
+- **Hints.** With Continuations off, a lesson that gives a hint for the move to find offers a **Hint**. It shows the PGN's text only; it never plays or reveals the move.
 - **Multi-game files.** Games that fail to parse stay in the list, underlined, so numbering matches the file.
 - **Promotions.** Board promotions use the PGN's piece, or a queen when exploring.
 - **Engine.** Stockfish.js (lite, single-threaded WASM) runs in a Web Worker and shows three lines on the current position. It is not bundled (~7 MB). The first time it is switched on, the app asks before fetching it from a public npm CDN. The bytes are checked against pinned SHA-256 hashes and kept in the Cache API: one download per browser, and offline after that. Analysis is entirely local.
 - **No backend.** Nothing about the user's file or activity is sent anywhere. The only network fetch the app makes beyond its own assets is the opt-in engine download.
 - **Licensing.** The project's own code is public domain (Unlicense). chessops and Chessground (GPL-3.0) are bundled, so a built copy is a GPL combined work: keep their notices and make source available when redistributing `dist/`. Stockfish (GPL-3.0) is fetched at runtime, not bundled.
-- **Terminology in use.** Open, Paste, Games, Continuations, Comments, Engine, Reveal, Discard, "Not in PGN".
+- **Terminology in use.** Open, Paste, Games, Continuations, Comments, Engine, Hint, Reveal, Discard, "Not in PGN".
 - **Open decision.** No target file size or performance budget has been set for "fast on big files".
 
 ## Brand Commitments
@@ -53,7 +55,7 @@ Compared with Lichess studies, chess.com and ChessBase:
 
 ## Evidence on Hand
 
-- The sample PGN used by tests and Storybook (`uniqueSample()` in `src/test-utils.ts`, consumed by `src/stories/fixture.tsx`).
+- The sample PGNs used by tests and Storybook (`samplePgn` and `annotatedPgn` in `src/test-utils.ts`, opened through `uniqueSample()` and consumed by `src/stories/fixture.tsx`). `annotatedPgn` reproduces the course-site markup listed under Annotations.
 - There are no users, testimonials, usage figures, benchmarks or press. Don't invent them, including unmeasured speed claims or comparisons with other products.
 
 ## Product Principles

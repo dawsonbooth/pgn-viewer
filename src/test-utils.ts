@@ -1,3 +1,5 @@
+import type { Block } from './chess/richtext'
+
 export const samplePgn = `[Event "Fork exercise"]
 [White "?"]
 [Black "?"]
@@ -27,10 +29,55 @@ Nf2 42. g4 Bd3 43. Re6 1/2-1/2
 1. e4 e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7# 1-0
 `
 
+// The markup course sites write into PGNs: a chess.com lesson (hints, wrong-move replies,
+// effects, a wrong answer as a "?" side line), a Chessable chapter (escaped brackets, a
+// header, a diagram, a null move) and a lesson position without kings.
+export const annotatedPgn = `[Event "Pirc lesson"]
+[Site "chess.com"]
+[FEN "2krr3/pp3p1p/1n4p1/q4n2/8/2P2N1P/P1P1QPP1/R1B1R1K1 w - - 0 16"]
+[SetUp "1"]
+
+{ [%csl Ge1,Ge8][%cal Ye1e8] How can White gain an advantage? } 16. Qxe8
+{ [%wrong Black is winning. Try
+again.][%hint Trade the queen for two rooks.][%c_effect e8;square;e8;type;Brilliant;persistent;true] }
+( 16. Qf1 $2 { [%c_effect f1;square;f1;type;Mistake;persistent;true] } 16... Qxc3
+{ Black is OK. Try again. } ) 16... Rxe8 { Good start! } 17. Rxe8+ Kd7 *
+
+[Event "Traps course"]
+[Site "chessable.com"]
+
+{ @@HeaderStart@@Opening traps@@HeaderEnd@@ The **first** trap @@StartBracket@@of many@@EndBracket@@:
+
+@@StartFEN@@rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2@@EndFEN@@ }
+1. e4 e5 2. Nf3 $1 { , developing. [%evp 0,2,20,25,30] } ( 2. -- { A pass: } 2... Nf6 )
+2... d6 $6 $14 *
+
+[Event "Bishop lesson"]
+[Variant "illegal"]
+[SetUp "1"]
+[FEN "8/8/8/8/8/8/5PPb/5K2 w - - 0 1"]
+
+1. g3 -- 2. Kg2 *
+`
+
 let counter = 0
 
 // unique header per call so each test gets its own fingerprint (and IndexedDB entry)
-export function uniqueSample(): File {
+export function uniqueSample(pgn = samplePgn): File {
   const id = `${Date.now().toString(36)}-${counter++}-${Math.random().toString(36).slice(2)}`
-  return new File([`[Fixture "${id}"]\n${samplePgn}`], `sample-${id}.pgn`)
+  return new File([`[Fixture "${id}"]\n${pgn}`], `sample-${id}.pgn`)
+}
+
+// The words of comment blocks without their markup: paragraphs apart by a blank line,
+// line breaks as newlines, diagrams left out.
+export function plainText(blocks: readonly Block[]): string {
+  return blocks
+    .map(b =>
+      b.spans
+        .map(s => (s.kind === 'break' ? '\n' : s.kind === 'diagram' ? '' : s.text))
+        .join('')
+        .trim(),
+    )
+    .filter(Boolean)
+    .join('\n\n')
 }

@@ -32,3 +32,12 @@ export const Flipped: Story = { args: { orientation: 'black' } }
 export const YourMove: Story = { args: { game: 1, ply: 0, continuations: false } }
 
 export const FromFen: Story = { args: { game: 0, ply: 0 } }
+
+// filled %csl squares and a %cal arrow at the start of a chess.com lesson
+export const Highlights: Story = { args: { sample: 'annotated', game: 0, ply: 0 } }
+
+// chess.com's Brilliant effect drawn as a badge on the destination square
+export const MoveBadge: Story = { args: { sample: 'annotated', game: 0, ply: 1 } }
+
+// a lesson position without kings, loaded as written
+export const TeachingPosition: Story = { args: { sample: 'annotated', game: 2, ply: 2 } }

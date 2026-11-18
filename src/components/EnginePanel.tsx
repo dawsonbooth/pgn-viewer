@@ -84,7 +84,7 @@ export function EnginePanel(props: { viewer: Viewer }) {
             class="engine-score text-2xl font-bold tracking-[-0.01em] tabular-nums"
             aria-live="polite"
           >
-            {best() ? formatScore(best()!) : '…'}
+            {best() ? formatScore(best()!) : v.analysable() ? '…' : '—'}
           </span>
           <span class="text-sm text-ink-2">
             <Show when={v.engineStatus() === 'downloading'}>
@@ -92,7 +92,9 @@ export function EnginePanel(props: { viewer: Viewer }) {
             </Show>
             <Show when={v.engineStatus() === 'loading'}>starting Stockfish…</Show>
             <Show when={v.engineStatus() === 'thinking' || v.engineStatus() === 'ready'}>
-              {best() ? `depth ${best()!.depth}` : 'analysing…'}
+              <Show when={v.analysable()} fallback="illegal position, no analysis">
+                {best() ? `depth ${best()!.depth}` : 'analysing…'}
+              </Show>
             </Show>
             <Show when={v.engineStatus() === 'error'}>error: {v.engineDetail()}</Show>
           </span>

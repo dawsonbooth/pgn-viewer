@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js'
-import { shortGameLabel } from '../chess/pgn'
+import { listedRound, shortGameLabel } from '../chess/pgn'
 import { btn, input } from '../ui'
 import type { Viewer } from '../viewer-state'
 
@@ -120,6 +120,7 @@ export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
                 <Show when={rec()}>
                   {r => {
                     const short = () => shortGameLabel(r().game.headers, r().label)
+                    const round = () => listedRound(v.games(), index())
                     return (
                       <button
                         type="button"
@@ -145,13 +146,21 @@ export function GameList(props: { viewer: Viewer; onSelect?: () => void }) {
                         <span class="game-ordinal min-w-[3.5ch] shrink-0 text-right font-semibold text-ink-2 tabular-nums">
                           {index() + 1}
                         </span>
-                        <span
-                          class="game-label min-w-0 flex-1 truncate"
-                          classList={{
-                            'underline decoration-danger decoration-wavy': !!r().parseError,
-                          }}
-                        >
-                          {short().text}
+                        <span class="game-label flex min-w-0 flex-1 gap-1.5">
+                          <span
+                            class="truncate"
+                            classList={{
+                              'underline decoration-danger decoration-wavy': !!r().parseError,
+                            }}
+                          >
+                            {short().text}
+                          </span>
+                          <Show when={round()}>
+                            <span class="game-round shrink-0 font-normal text-ink-2 tabular-nums">
+                              <span class="sr-only">, round </span>
+                              {round()}
+                            </span>
+                          </Show>
                         </span>
                         <Show when={short().year}>
                           <span class="shrink-0 font-normal text-ink-2 tabular-nums">

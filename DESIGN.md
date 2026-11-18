@@ -26,6 +26,23 @@ colors:
   coord: '#102a22'
   last-move: 'light-dark(rgb(246 190 60 / 0.5), rgb(240 180 40 / 0.55))'
   dest: 'rgb(15 92 74 / 0.5)'
+  glyph-brilliant: 'light-dark(#087065, #4fd3c0)'
+  glyph-good: 'light-dark(#287a2c, #7dd48a)'
+  glyph-interesting: 'light-dark(#9636ae, #e39bf7)'
+  glyph-dubious: 'light-dark(#1c6aab, #80bdf2)'
+  glyph-mistake: 'light-dark(#b0520a, #f6a35e)'
+  glyph-blunder: 'light-dark(#c0281d, #ff8478)'
+  badge-brilliant: '#0a7f72'
+  badge-good: '#26823a'
+  badge-interesting: '#9a44b9'
+  badge-dubious: '#2a78bd'
+  badge-mistake: '#b5530b'
+  badge-blunder: '#cc3426'
+  badge-only: '#4b5853'
+  mark-red: 'rgb(224 66 52 / 0.6)'
+  mark-green: 'rgb(110 175 40 / 0.62)'
+  mark-yellow: 'rgb(255 150 20 / 0.6)'
+  mark-blue: 'rgb(50 130 220 / 0.55)'
 typography:
   display:
     fontFamily: "'Source Sans 3 Variable', ui-sans-serif, system-ui, sans-serif"
@@ -199,8 +216,16 @@ The palette is a green-grey neutral family framed by one deep forest green, with
 - **Pane White / Deep Pine Pane** (`surface`): the games rail, the reading column, buttons, inputs and the games sheet.
 - **Sage Wash** (`surface-2`): hover fills, segmented-control tracks, the engine score chip and the "Next move hidden" chip.
 - **Ink** (`ink`), **Secondary Ink** (`ink-2`), **Quiet Ink** (`ink-3`): text in three steps. `ink-2` is for comments, metadata and counts. `ink-3` is for placeholders, hints and the dashed underline on explored moves.
-- **Hairline** (`rule`) and **Firm Hairline** (`rule-strong`): pane dividers, and control borders plus the scrollbar thumb.
+- **Hairline** (`rule`) and **Firm Hairline** (`rule-strong`): pane dividers, and control borders plus the things you drag: the scrollbar thumb and the rail edge's line.
 - **Board squares** (`sq-light`, `sq-dark`): white and green-grey, dimmed in dark mode. Coordinates use `coord` on both schemes; move destinations use translucent green (`dest`).
+
+### Annotation
+
+The judgements a PGN passes on moves, in the hues chess sites use for them, each clearing 4.5:1 on `surface` in both schemes.
+
+- **Verdict inks** (`glyph-brilliant`, `glyph-good`, `glyph-interesting`, `glyph-dubious`, `glyph-mistake`, `glyph-blunder`): teal `!!`, green `!`, purple `!?`, blue `?!`, burnt orange `?`, red `??`. They colour the glyph after the SAN, never the SAN itself, and the match feedback under the board.
+- **Badge fills** (`badge-*`): the same verdicts as solid discs on the board, plus slate for the only move (`□`). The board is light in both schemes, so these are single values.
+- **Marks** (`mark-red`, `mark-green`, `mark-yellow`, `mark-blue`): translucent fills for squares a comment highlights. They paint over the last-move colour rather than replacing it. Yellow leans orange so it never reads as the amber last move.
 
 ### Named Rules
 
@@ -209,6 +234,8 @@ The palette is a green-grey neutral family framed by one deep forest green, with
 **The Paired Token Rule.** Every theme-dependent colour is a single `light-dark()` pair on `:root`, exposed through `@theme inline`. The scheme is chosen by `color-scheme`, which follows the OS or the `<html data-theme>` override. Never use Tailwind's `dark:` variant, because it ignores the manual override.
 
 **The Shell Rule.** The shell is green in both schemes. Anything placed on it uses white text, white-alpha hovers (12%), and a white focus ring (`.on-shell`).
+
+**The Verdict Rule.** Colour in the move text belongs to move assessments ($1–$6) and nothing else. Position and other glyphs ($10 onward: `±`, `∞`, `N`, …) stay in ink. On the amber current-move chip a verdict takes the chip's ink. The verdict palette has no yellow, so it never competes with amber.
 
 ## Typography
 
@@ -239,7 +266,7 @@ The palette is a green-grey neutral family framed by one deep forest green, with
 
 The app is a full-height column: the 52px shell, then one grid that fills the rest of the viewport. Panes scroll on their own; the page never scrolls.
 
-- **Desktop (≥1024px):** three columns. The games rail is 252px. The board column takes the remaining space, centred vertically, with the board sized to `min(100%, 100vh − 140px)`. The reading column is `minmax(340px, min(36vw, 560px))`. The rail and reading column are `surface` panes divided from the `ground` board column by `rule` hairlines.
+- **Desktop (≥1024px):** three columns. The games rail is 252px, and dragging its edge widens it up to 35% of the window (560px at most), so long titles fit; the width is remembered on the device. The board column takes the remaining space, centred vertically, with the board sized to `min(100%, 100vh − 140px)`. The reading column is `minmax(340px, min(36vw, 560px))`. The rail and reading column are `surface` panes divided from the `ground` board column by `rule` hairlines.
 - **Phone portrait:** the board is full width, with the nav row and then the reading column below it (`border-t`). A Games button in the shell opens the rail as a bottom sheet. The three toggles move from the shell into a segmented row at the top of the reading column.
 - **Landscape phone/tablet (≥600px):** the board sits beside a reading column of `minmax(280px, 42%)`.
 - **Reading column padding** steps from 16px to 24px to 32px at the sm and lg breakpoints, with a 16px gap between the header and the move text. The engine section is docked at the foot of the column, behind a hairline.
@@ -291,21 +318,31 @@ Neutral by default; green is reserved for the single main action.
 ### Navigation
 
 - **Top bar:** the 52px green shell holds the wordmark, the file name (600, `white/80`, truncated), Open, Paste, the toggles, the Games button on phone, and the theme cycle (System, Light, Dark).
-- **Board nav row:** five icon buttons, then a right-aligned status. The status is either the current move in the title style, or feedback (a green check on a match, red "Not in PGN", "Your move" with Reveal).
-- **Games rail:** a filter field plus a "#" jump field and Go, then virtualised 34px rows. Each row shows a right-aligned `ink-2` ordinal, a truncated label and an `ink-2` year. The selected row gets `accent-tint` and 600 weight. A count line sits at the foot.
+- **Board nav row:** five icon buttons, then a right-aligned status. The status is either the current move in the title style, or feedback (a green check on a match, a cross in the verdict ink when the matched move is marked `?!`, `?` or `??`, red "Not in PGN", "Your move" with Reveal).
+- **Games rail:** a filter field plus a "#" jump field and Go, then virtualised 34px rows. Each row shows a right-aligned `ink-2` ordinal, a truncated label and an `ink-2` year. When a neighbouring row has the same label, as a lesson's steps do, the game's round follows the label in `ink-2` 400, outside the truncation. The selected row gets `accent-tint` and 600 weight. A count line sits at the foot.
+- **Rail edge:** the rail's right hairline is a splitter, an 8px grab area (16px for touch) with the `col-resize` cursor. A 3px line lights up over the hairline: `rule-strong` on hover after 150ms and while dragging, `focus` with keyboard focus. The arrow keys move it 16px, Home and End go to the limits, and a double-click restores 252px.
 
 ### Move Text
 
 - **Current move:** an amber chip (`accent` fill, `on-accent` text, 4px radius, 3px side padding).
 - **Main line:** moves in 600 weight. **Side lines:** a two-column grid with a bold brand-green outline label (A, B, A1) in the gutter and 400-weight moves beside it. **Comments:** inline in `ink-2`.
 - **Explored moves:** italic with a dashed `ink-3` underline. **Parse errors:** a wavy `danger` underline.
+- **Glyphs:** a move assessment sits against the SAN in its verdict ink at 700. Other glyphs follow after 2px in ink at 400. Each carries its meaning as a tooltip, and the move's accessible name spells it out ("16. Qf1, mistake").
 - **Starting note:** a comment before the first move (such as "White to play") sits above the moves in `ink-2`.
-- **Hidden continuation:** with Continuations off, a `surface-2` "Next move hidden" chip ends the line.
+- **Comment prose:** the first paragraph of a comment runs on from its move, and later ones start their own line 8px down. A comment that opens with punctuation hugs its move ("Qb6, although"). Inside comments: headings at reading size, 700, `ink`; emphasis at 600 or italic; quotes italic behind a 2px `rule-strong` rule; links underlined in `rule-strong`, which turns to the text colour on hover.
+- **Diagrams:** a position named in a comment is drawn as a 9rem static board with chessground's pieces, framed by a 1px `rule-strong` outline and turned with the main board.
+- **Hidden continuation:** with Continuations off, a `surface-2` "Next move hidden" chip ends the line. When the lesson has one, a bordered **Hint** chip follows it. The hint, and a lesson's reply to a wrong move, sit below in `ink-2`.
 - **Result:** bold, after the last move, only when continuations are shown.
+
+### Board Marks
+
+- **Arrows:** chessground's brushes (green, red, blue, yellow) at its 60% layer opacity.
+- **Squares:** `mark-*` fills over the square and the last-move colour, and under the piece, a move dot and the check glow.
+- **Badges:** a disc 38% of the square wide in the top-right corner of the destination square (the king's square for castling), in its `badge-*` fill with a 2.5-unit white ring and a white 700 glyph (an outlined square for the only move). A chess.com classification on that square replaces the glyph's badge. Glyph badges always show; everything from comments follows the Comments toggle.
 
 ### Game Header
 
-A headline title (balanced wrapping), then a wrapping list of `ink-2` header facts spaced 16px apart, with no separator glyphs: ECO and opening, event, site, date, round. Unknown values are skipped, and a partial date shows only its known part. The result is left out so it can't give away a hidden continuation.
+A headline title (balanced wrapping), then a wrapping list of `ink-2` header facts spaced 16px apart, with no separator glyphs: the players (when a course's name for the game is the title), ECO and opening, event, site, date, round. Unknown values are skipped, and a partial date shows only its known part. The result is left out so it can't give away a hidden continuation.
 
 ### Engine Panel
 
@@ -317,7 +354,8 @@ This sits at the foot of the reading column and appears only when the engine is 
 
 - **Do** define every new colour as a `light-dark()` pair on `:root` and expose it through `@theme inline`.
 - **Do** use the recipes in `src/ui.ts` whole. Never append a utility that conflicts with one the recipe already sets: Tailwind resolves conflicts by stylesheet order, not class-string order.
-- **Do** keep the marker classes the vitest suites select on: `move`, `active`, `transient`, `line`, `variation`.
+- **Do** keep the marker classes the vitest suites select on: `move`, `active`, `transient`, `line`, `variation`, `comment`, `glyph`, `diagram`, `hint`, `hint-button`, `wrong-note`.
+- **Do** turn new comment markup into data (`src/chess/richtext.ts`) and render it as elements. Never hand text from a PGN to `innerHTML`; badge SVGs are built only from fixed strings.
 - **Do** keep annotation text at the reading size (1.0625rem / 1.65) within a 62ch measure.
 - **Do** separate panes with 1px `rule` hairlines on flat `surface`.
 - **Do** draw new icons in the 24px, 1.75-stroke, round-cap family, inline SVG, `currentColor`.
@@ -328,5 +366,6 @@ This sits at the foot of the reading column and appears only when the engine is 
 - **Don't** fetch fonts or any other asset from a CDN; the only network fetch beyond the app is the opt-in engine.
 - **Don't** add a second typeface.
 - **Don't** use amber for decoration, headings or buttons; it marks position and selection only.
+- **Don't** colour a SAN or a position glyph; verdict inks are for move assessments only.
 - **Don't** wrap panes in rounded, shadowed cards, or switch to charcoal panels.
 - **Don't** put white text on amber; amber always carries `on-accent` ink.

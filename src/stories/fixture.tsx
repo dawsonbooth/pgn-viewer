@@ -2,10 +2,12 @@ import { createResource, Show, type JSX } from 'solid-js'
 import { scriptedTransport, stubEngine } from '../engine/scripted'
 import { StockfishEngine } from '../engine/stockfish'
 import type { EngineFactory } from '../engine/uci'
-import { uniqueSample } from '../test-utils'
+import { annotatedPgn, samplePgn, uniqueSample } from '../test-utils'
 import { createViewer, type Viewer } from '../viewer-state'
 
 export interface FixtureOptions {
+  // 'annotated': course-site markup: hints, effects, diagrams, a null move
+  sample?: 'basic' | 'annotated'
   game?: number
   ply?: number
   continuations?: boolean
@@ -20,7 +22,7 @@ const scriptedEngine: EngineFactory = opts =>
 
 export async function openSample(opts: FixtureOptions = {}): Promise<Viewer> {
   const v = createViewer(opts.engine === 'scripted' ? { createEngine: scriptedEngine } : {})
-  await v.openFile(uniqueSample())
+  await v.openFile(uniqueSample(opts.sample === 'annotated' ? annotatedPgn : samplePgn))
   if (opts.game !== undefined) v.selectGame(opts.game)
   for (let i = 0; i < (opts.ply ?? 0); i++) v.cursor.next()
   if (opts.continuations === false) v.toggleContinuations()

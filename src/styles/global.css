@@ -37,6 +37,30 @@
   --coord: #102a22;
   --last-move: light-dark(rgb(246 190 60 / 0.5), rgb(240 180 40 / 0.55));
   --dest: rgb(15 92 74 / 0.5);
+
+  /* move-assessment glyphs ($1–$6) in the move text; every other glyph stays in ink */
+  --glyph-brilliant: light-dark(#087065, #4fd3c0);
+  --glyph-good: light-dark(#287a2c, #7dd48a);
+  --glyph-interesting: light-dark(#9636ae, #e39bf7);
+  --glyph-dubious: light-dark(#1c6aab, #80bdf2);
+  --glyph-mistake: light-dark(#b0520a, #f6a35e);
+  --glyph-blunder: light-dark(#c0281d, #ff8478);
+
+  /* the same judgements as discs on the board, white glyph on fill; the board stays
+     light in both schemes, so these do not change */
+  --badge-brilliant: #0a7f72;
+  --badge-good: #26823a;
+  --badge-interesting: #9a44b9;
+  --badge-dubious: #2a78bd;
+  --badge-mistake: #b5530b;
+  --badge-blunder: #cc3426;
+  --badge-only: #4b5853;
+
+  /* squares a comment fills in (%csl, chess.com highlights) */
+  --mark-red: rgb(224 66 52 / 0.6);
+  --mark-green: rgb(110 175 40 / 0.62);
+  --mark-yellow: rgb(255 150 20 / 0.6);
+  --mark-blue: rgb(50 130 220 / 0.55);
 }
 :root[data-theme='light'] {
   color-scheme: light;
@@ -67,6 +91,12 @@
   --color-danger: var(--danger);
   --color-brand: var(--brand);
   --color-focus: var(--focus);
+  --color-glyph-brilliant: var(--glyph-brilliant);
+  --color-glyph-good: var(--glyph-good);
+  --color-glyph-interesting: var(--glyph-interesting);
+  --color-glyph-dubious: var(--glyph-dubious);
+  --color-glyph-mistake: var(--glyph-mistake);
+  --color-glyph-blunder: var(--glyph-blunder);
 }
 
 @layer base {
@@ -98,6 +128,13 @@
     color: var(--ink-3);
     opacity: 1;
   }
+}
+
+/* While the games list's edge is dragged, over the board and everything else */
+.col-resizing,
+.col-resizing * {
+  cursor: col-resize !important;
+  user-select: none;
 }
 
 /* Chessground board theme: replaces chessground.brown.css */
@@ -132,6 +169,66 @@ cg-board square.check {
     rgb(214 40 40 / 0.85) 25%,
     rgb(214 40 40 / 0) 85%
   );
+}
+/* Comment highlights paint over the last-move colour, and under a move dot or the check
+   glow, which are repeated here as the top layer. */
+cg-board square.mark-red {
+  --mark: var(--mark-red);
+}
+cg-board square.mark-green {
+  --mark: var(--mark-green);
+}
+cg-board square.mark-yellow {
+  --mark: var(--mark-yellow);
+}
+cg-board square.mark-blue {
+  --mark: var(--mark-blue);
+}
+cg-board square.mark {
+  background-image: linear-gradient(var(--mark), var(--mark));
+}
+cg-board square.mark.move-dest {
+  background-image:
+    radial-gradient(var(--dest) 20%, transparent 0), linear-gradient(var(--mark), var(--mark));
+}
+cg-board square.mark.oc.move-dest {
+  background-image:
+    radial-gradient(transparent 0%, transparent 78%, var(--dest) 78%),
+    linear-gradient(var(--mark), var(--mark));
+}
+cg-board square.mark.check {
+  background-image:
+    radial-gradient(
+      ellipse at center,
+      rgb(214 40 40 / 1) 0%,
+      rgb(214 40 40 / 0.85) 25%,
+      rgb(214 40 40 / 0) 85%
+    ),
+    linear-gradient(var(--mark), var(--mark));
+}
+.cg-wrap .badge text {
+  font-family: var(--font-sans);
+}
+
+/* Diagrams embedded in comments: a static board drawn with chessground's piece set */
+.mini-board {
+  position: relative;
+  display: block;
+  width: 9rem;
+  aspect-ratio: 1;
+  /* the light corner square would otherwise melt into a white pane */
+  outline: 1px solid var(--rule-strong);
+  background: conic-gradient(
+      var(--sq-dark) 25%,
+      var(--sq-light) 0 50%,
+      var(--sq-dark) 0 75%,
+      var(--sq-light) 0
+    )
+    0 0 / 25% 25%;
+}
+/* static pieces: no compositing layer each, as chessground's animated ones get */
+.cg-wrap.mini-board piece {
+  will-change: auto;
 }
 .cg-wrap coords {
   opacity: 1;

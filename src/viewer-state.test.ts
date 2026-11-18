@@ -9,12 +9,15 @@ import {
 } from './engine/scripted'
 import { StockfishEngine } from './engine/stockfish'
 import type { EngineFactory } from './engine/uci'
-import { uniqueSample } from './test-utils'
+import { annotatedPgn, uniqueSample } from './test-utils'
 import { createViewer, type Viewer, type ViewerOptions } from './viewer-state'
 
-async function openSample(options?: ViewerOptions): Promise<{ v: Viewer; dispose: () => void }> {
+async function openSample(
+  options?: ViewerOptions,
+  pgn?: string,
+): Promise<{ v: Viewer; dispose: () => void }> {
   const { v, dispose } = createRoot(d => ({ v: createViewer(options), dispose: d }))
-  await v.openFile(uniqueSample())
+  await v.openFile(uniqueSample(pgn))
   return { v, dispose }
 }
 
@@ -108,6 +111,26 @@ describe('engine', () => {
     expect(last().sent).toContain(`position fen ${v.cursor.fen()}`)
     expect(v.analysis()?.fen).toBe(v.cursor.fen())
     expect(v.analysis()?.lines).toHaveLength(3)
+    dispose()
+  })
+
+  it('never sends a lesson position without kings', async () => {
+    const { createEngine, transports, last } = scriptedEngine()
+    const { v, dispose } = await openSample({ createEngine }, annotatedPgn)
+    v.selectGame(2)
+    v.toggleEngine()
+    await settle()
+    // the engine starts, but is not asked about the kingless start
+    expect(transports).toHaveLength(1)
+    expect(v.analysable()).toBe(false)
+    const kingless = v.cursor.fen()
+    expect(last().sent.join('\n')).not.toContain(`position fen ${kingless}`)
+    expect(v.analysis()).toBeUndefined()
+
+    v.selectGame(0)
+    await settle()
+    expect(v.analysable()).toBe(true)
+    expect(last().sent).toContain(`position fen ${v.cursor.fen()}`)
     dispose()
   })
 

@@ -22,6 +22,8 @@ import {
 export interface MoveFeedback {
   kind: 'match' | 'mismatch' | 'revealed' | 'end' | 'explore'
   san?: string
+  // the PGN's verdict on a matched move: a course may list wrong answers as "?" side lines
+  nags?: number[]
 }
 
 export type MoveResult =
@@ -62,6 +64,8 @@ export function createCursor(opts: CursorOptions) {
   const [spot, setSpot] = createSignal<Spot>()
   const [visited, setVisited] = createSignal<Record<number, number>>({})
   const [feedback, setFeedback] = createSignal<MoveFeedback>()
+  // asked for at this position; any move clears it
+  const [hintShown, setHintShown] = createSignal(false)
   // bumped when an exploration mutates the prepared tree in place
   const [version, setVersion] = createSignal(0)
 
@@ -105,6 +109,23 @@ export function createCursor(opts: CursorOptions) {
   })
   const isExploring = () => exploringFrom() !== undefined
 
+  // Lessons hang their training text on the comment of the PGN move to be found from here,
+  // or for the first move sometimes on the game comment before it: a hint for finding the
+  // move, and the reply to any move that is not in the file.
+  const lessonComments = createMemo(() => {
+    const t = tree()
+    const n = node()
+    const next = n?.children[0]
+    if (!t || next === undefined) return []
+    const own = t.nodes[next]!.comments
+    return n!.parent < 0 ? [...own, ...n!.comments] : own
+  })
+  const hint = () => lessonComments().find(c => c.hint)?.hint
+  const wrongNote = () => lessonComments().find(c => c.wrong)?.wrong
+  const showHint = () => {
+    if (hint()) setHintShown(true)
+  }
+
   const atStart = () => (node()?.parent ?? -1) < 0
   const atEnd = () => !node()?.children.length
   const canPrev = () => !atStart()
@@ -128,6 +149,7 @@ export function createCursor(opts: CursorOptions) {
         setSpot({ game: g, id: target, anchor })
         setVisited(v => (v[g] === remembered ? v : { ...v, [g]: remembered }))
         setFeedback(fb)
+        setHintShown(false)
       })
     })
   }
@@ -204,7 +226,10 @@ export function createCursor(opts: CursorOptions) {
     replyTimer = setTimeout(() => {
       replyTimer = undefined
       if (game() !== g || id() !== played.id || showContinuations()) return
-      place(reply, exploringFrom(), feedback())
+      // the check for the move just played stays; a "Not in PGN" for a move tried while
+      // the reply was pending belongs to the position the reply leaves behind
+      const fb = feedback()
+      place(reply, exploringFrom(), fb?.kind === 'match' ? fb : undefined)
     }, replyDelay)
   }
 
@@ -217,7 +242,11 @@ export function createCursor(opts: CursorOptions) {
       .map(i => t.nodes[i]!)
       .find(m => m.uci === prefix || m.uci.startsWith(prefix))
     if (!match) return showContinuations() ? explore(t, n, orig, dest) : reject(n)
-    place(match.id, exploringFrom(), { kind: 'match', san: match.san })
+    place(match.id, exploringFrom(), {
+      kind: 'match',
+      san: match.san,
+      ...(match.nags.length && { nags: match.nags }),
+    })
     scheduleReply(match)
     return { kind: 'accepted', san: match.san }
   }
@@ -236,6 +265,7 @@ export function createCursor(opts: CursorOptions) {
       setVisited({ ...saved })
       setSpot(undefined)
       setFeedback(undefined)
+      setHintShown(false)
     })
   }
 
@@ -247,6 +277,7 @@ export function createCursor(opts: CursorOptions) {
         cancelReply()
         if (!visible) discard()
         setFeedback(undefined)
+        setHintShown(false)
       },
       { defer: true },
     ),
@@ -259,6 +290,10 @@ export function createCursor(opts: CursorOptions) {
     fen,
     path,
     feedback,
+    hint,
+    hintShown,
+    showHint,
+    wrongNote,
     atStart,
     atEnd,
     canPrev,

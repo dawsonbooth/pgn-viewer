@@ -1,5 +1,5 @@
 import { batch, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
-import { parsePgnStream, type GameRecord, type PgnDocument } from './chess/pgn'
+import { isLegalPosition, parsePgnStream, type GameRecord, type PgnDocument } from './chess/pgn'
 import { createCursor } from './cursor'
 import { isEngineCached } from './engine/assets'
 import type { Engine, EngineAnalysis, EngineFactory, EngineStatus } from './engine/uci'
@@ -74,6 +74,12 @@ export function createViewer(options: ViewerOptions = {}) {
     const a = reported()
     return a && a.fen === cursor.fen() ? a : undefined
   })
+  // false for what the PGN may show but Stockfish must not see: a pass out of check, a
+  // lesson position without kings
+  const analysable = createMemo(() => {
+    const n = cursor.node()
+    return !n || isLegalPosition(n.pos)
+  })
 
   const ensureEngine = () => {
     if (enginePromise) return enginePromise
@@ -109,9 +115,13 @@ export function createViewer(options: ViewerOptions = {}) {
         return
       }
       if (!f) return
+      const legal = analysable()
       void ensureEngine().then(
         e => {
-          if (engineEnabled() && cursor.fen() === f) e.analyze(f)
+          if (!engineEnabled() || cursor.fen() !== f) return
+          // nothing to search here; don't leave the last position running either
+          if (legal) e.analyze(f)
+          else e.stop()
         },
         // a failed load stays failed until the engine is switched off and on again
         err => {
@@ -232,6 +242,7 @@ export function createViewer(options: ViewerOptions = {}) {
     confirmEngineDownload,
     dismissEngineDownload,
     analysis,
+    analysable,
     gamesOpen,
     setGamesOpen,
   }

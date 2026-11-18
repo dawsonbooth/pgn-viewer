@@ -1,12 +1,11 @@
 import { Chessground } from '@lichess-org/chessground'
 import type { Api } from '@lichess-org/chessground/api'
-import type { DrawShape } from '@lichess-org/chessground/draw'
 import type { Key } from '@lichess-org/chessground/types'
-import { makeSquare } from 'chessops'
 import { chessgroundDests } from 'chessops/compat'
 import { createEffect, on, onCleanup, onMount } from 'solid-js'
 import type { MoveNode } from '../chess/pgn'
 import type { Viewer } from '../viewer-state'
+import { boardMarks } from './board-marks'
 import { boardWidth } from './NavBar'
 
 export function Board(props: { viewer: Viewer }) {
@@ -70,20 +69,11 @@ export function Board(props: { viewer: Viewer }) {
 
   createEffect(() => api?.set({ orientation: v.orientation() }))
 
-  // %cal/%csl shapes live in comments, so they follow the comments toggle
+  // arrows, filled squares and move badges; see board-marks
   createEffect(() => {
-    const node = cur.node()
-    const shapes: DrawShape[] = []
-    if (node && v.showComments()) {
-      for (const c of node.comments) {
-        for (const s of c.shapes) {
-          const orig = makeSquare(s.from) as Key
-          const dest = makeSquare(s.to) as Key
-          shapes.push({ orig, dest: orig === dest ? undefined : dest, brush: s.color })
-        }
-      }
-    }
-    api?.setAutoShapes(shapes)
+    const marks = boardMarks(cur.node(), v.showComments())
+    api?.setAutoShapes(marks.shapes)
+    api?.set({ highlight: { custom: marks.squares } })
   })
 
   return (

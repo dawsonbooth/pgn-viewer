@@ -1,16 +1,18 @@
 import { Chess, makeSquare, makeUci, type NormalMove, type Position } from 'chessops'
-import { makeFen } from 'chessops/fen'
+import { makeFen, parseFen } from 'chessops/fen'
 import {
   PgnParser,
-  parseComment,
+  parseVariant,
   startingPosition,
   type ChildNode,
-  type Comment,
   type Game,
   type Node,
   type PgnNodeData,
 } from 'chessops/pgn'
 import { makeSanAndPlay, parseSan } from 'chessops/san'
+import { opposite } from 'chessops/util'
+import { parseCommentary, type Commentary } from './comment'
+import { nagInfos } from './nags'
 
 export interface PgnDocument {
   name: string
@@ -31,11 +33,8 @@ export function gameLabel(headers: Map<string, string>, index: number): string {
     const v = headers.get(k)?.trim()
     return v && v !== '?' && v !== '-' ? v : undefined
   }
-  const white = get('White')
-  const black = get('Black')
-  if (white || black) return `${white ?? '?'} – ${black ?? '?'}`
-  const event = get('Event')
-  if (event) return event
+  const title = courseTitle(headers) ?? gamePlayers(headers) ?? get('Event')
+  if (title) return title
   for (const k of ['Opening', 'Site', 'Annotator', 'Round']) {
     const v = get(k)
     if (v) return v
@@ -49,10 +48,25 @@ export function headerValue(headers: Map<string, string>, key: string): string |
   return v && !/^[?\-.]*$/.test(v) ? v : undefined
 }
 
+// Courses name each game: chess.com lessons in LessonName, Noctie in ElementName.
+function courseTitle(headers: Map<string, string>): string | undefined {
+  return headerValue(headers, 'LessonName') ?? headerValue(headers, 'ElementName')
+}
+
+// "White – Black". A chess.com lesson has no players: its editor writes the step ("4.1",
+// "Video 10") where White's name would go.
+export function gamePlayers(headers: Map<string, string>): string | undefined {
+  if (headerValue(headers, 'LessonName')) return undefined
+  const white = headerValue(headers, 'White')
+  const black = headerValue(headers, 'Black')
+  return white || black ? `${white ?? '?'} – ${black ?? '?'}` : undefined
+}
+
 const surname = (name: string | undefined) => name?.split(',')[0]!.trim()
 
 // Compact list label: surnames and place (or event). The year is returned separately so a
-// narrow list can truncate the text and still show it. Falls back to the full label.
+// narrow list can truncate the text and still show it. Falls back to the full label, and a
+// course's own title always uses it.
 export function shortGameLabel(
   headers: Map<string, string>,
   full: string,
@@ -61,10 +75,31 @@ export function shortGameLabel(
   const year = get('Date')?.match(/^\d{4}/)?.[0]
   const white = surname(get('White'))
   const black = surname(get('Black'))
-  if (!white && !black) return { text: full, year }
+  if (courseTitle(headers) || (!white && !black)) return { text: full, year }
   const place = get('Site')?.split(',')[0]!.trim() ?? get('Event')
   return { text: `${white ?? '?'} – ${black ?? '?'}${place ? `, ${place}` : ''}`, year }
 }
+
+// Games next to each other can share a title, like the steps of a chess.com lesson or the
+// lines of a Chessable course. The list tells them apart by their Round.
+export function listedRound(games: readonly GameRecord[], index: number): string | undefined {
+  const game = games[index]
+  const shared = (i: number) => games[i]?.label === game?.label
+  if (!game || (!shared(index - 1) && !shared(index + 1))) return undefined
+  return headerValue(game.game.headers, 'Round')
+}
+
+// chess.com writes some header values HTML-escaped ("Silman&#039;s Lessons"). The
+// "&#039;" form is PHP's htmlspecialchars, and these five are all it produces.
+const HTML_ESCAPES = new Map([
+  ['&amp;', '&'],
+  ['&quot;', '"'],
+  ['&#039;', "'"],
+  ['&lt;', '<'],
+  ['&gt;', '>'],
+])
+const unescapeHtml = (s: string) =>
+  s.replace(/&(?:amp|quot|#039|lt|gt);/g, e => HTML_ESCAPES.get(e)!)
 
 // Streams the file through chessops' parser; onGames receives each batch so the
 // game list can render before parsing finishes.
@@ -77,6 +112,7 @@ export async function parsePgnStream(
   let index = 0
   let batch: GameRecord[] = []
   const parser = new PgnParser((game, err) => {
+    for (const [key, value] of game.headers) game.headers.set(key, unescapeHtml(value))
     batch.push({ index, game, label: gameLabel(game.headers, index), parseError: err?.message })
     index++
   })
@@ -120,8 +156,8 @@ export interface MoveNode {
   pos: Position
   check: boolean
   lastMove?: [string, string]
-  comments: Comment[]
-  startingComments: Comment[]
+  comments: Commentary[]
+  startingComments: Commentary[]
   nags: number[]
   moveNumber: number
   color: 'white' | 'black'
@@ -140,15 +176,48 @@ export interface PreparedGame {
 
 const plyOf = (pos: Position) => (pos.fullmoves - 1) * 2 + (pos.turn === 'black' ? 1 : 0)
 
+// "--" in the PGN: the side to move passes, which annotators use to show a threat.
+function playNull(pos: Position): void {
+  pos.turn = opposite(pos.turn)
+  pos.epSquare = undefined
+  pos.halfmoves++
+  if (pos.turn === 'white') pos.fullmoves++
+}
+
+// A pass out of check leaves a king en prise, and a lesson may have no kings at all;
+// neither may ever reach the engine.
+export const isLegalPosition = (pos: Position): boolean => Chess.fromSetup(pos.toSetup()).isOk
+
+// Lessons set up positions no game could reach, such as a bishop and pawns without kings,
+// to show how a piece moves; chess.com sometimes tags them [Variant "illegal"]. chessops
+// refuses them, so they are loaded as written.
+function teachingPosition(headers: Map<string, string>, error: string): Position | undefined {
+  const variant = headers.get('Variant')?.trim().toLowerCase()
+  const kingless = error === 'ERR_KINGS' && parseVariant(variant) === 'chess'
+  if (variant !== 'illegal' && !kingless) return undefined
+  const fen = headers.get('FEN')
+  const setup = fen === undefined ? undefined : parseFen(fen)
+  if (!setup?.isOk) return undefined
+  // what Chess.fromSetup does, minus the validation; brackets reach the protected method
+  const pos = Chess.default()
+  pos['setupUnchecked'](setup.value)
+  return pos
+}
+
 export function prepareGame(record: GameRecord): PreparedGame {
   const nodes: MoveNode[] = []
-  const startRes = startingPosition(record.game.headers)
+  const headers = record.game.headers
+  const startRes = startingPosition(headers)
   let setupError: string | undefined
   let startPos: Position
   if (startRes.isOk) startPos = startRes.value
   else {
-    setupError = startRes.error.message
-    startPos = Chess.default()
+    const teaching = teachingPosition(headers, startRes.error.message)
+    if (teaching) startPos = teaching
+    else {
+      setupError = startRes.error.message
+      startPos = Chess.default()
+    }
   }
   const root: MoveNode = {
     id: 0,
@@ -161,7 +230,7 @@ export function prepareGame(record: GameRecord): PreparedGame {
     fen: makeFen(startPos.toSetup()),
     pos: startPos,
     check: startPos.isCheck(),
-    comments: (record.game.comments ?? []).map(parseComment),
+    comments: (record.game.comments ?? []).map(parseCommentary),
     startingComments: [],
     nags: [],
     moveNumber: startPos.fullmoves,
@@ -172,7 +241,6 @@ export function prepareGame(record: GameRecord): PreparedGame {
   const visit = (parent: MoveNode, source: Node<PgnNodeData>) => {
     source.children.forEach((child: ChildNode<PgnNodeData>, branch) => {
       const pos = parent.pos.clone()
-      const move = parseSan(pos, child.data.san)
       const node: MoveNode = {
         id: nodes.length,
         parent: parent.id,
@@ -184,27 +252,36 @@ export function prepareGame(record: GameRecord): PreparedGame {
         fen: parent.fen,
         pos,
         check: false,
-        comments: (child.data.comments ?? []).map(parseComment),
-        startingComments: (child.data.startingComments ?? []).map(parseComment),
-        nags: child.data.nags ?? [],
+        comments: (child.data.comments ?? []).map(parseCommentary),
+        startingComments: (child.data.startingComments ?? []).map(parseCommentary),
+        // "Nf3! $1" names the same glyph twice
+        nags: [...new Set(child.data.nags ?? [])],
         moveNumber: parent.pos.fullmoves,
         color: parent.pos.turn,
       }
+      // Courses pass even out of check ("15... Bb4+ 16. -- Ra1#") to say any move loses;
+      // the PGN is the authority, so the line is kept.
+      const move = child.data.san === '--' ? undefined : parseSan(pos, child.data.san)
       if (move) {
         node.san = makeSanAndPlay(pos, move)
         node.uci = makeUci(move)
-        node.fen = makeFen(pos.toSetup())
-        node.check = pos.isCheck()
         node.lastMove =
           'from' in move
             ? [makeSquare(move.from), makeSquare(move.to)]
             : [makeSquare(move.to), makeSquare(move.to)]
+      } else if (child.data.san === '--') {
+        playNull(pos)
+        node.uci = '0000'
       } else {
         node.error = `Illegal move: ${child.data.san}`
       }
+      if (!node.error) {
+        node.fen = makeFen(pos.toSetup())
+        node.check = pos.isCheck()
+      }
       nodes.push(node)
       parent.children.push(node.id)
-      if (move) visit(node, child)
+      if (!node.error) visit(node, child)
     })
   }
   visit(root, record.game.moves)
@@ -229,44 +306,19 @@ export function pathTo(game: PreparedGame, id: number): number[] {
   return path.toReversed()
 }
 
-const NAG_GLYPHS: Record<number, string> = {
-  1: '!',
-  2: '?',
-  3: '!!',
-  4: '??',
-  5: '!?',
-  6: '?!',
-  7: '□',
-  10: '=',
-  13: '∞',
-  14: '⩲',
-  15: '⩱',
-  16: '±',
-  17: '∓',
-  18: '+−',
-  19: '−+',
-  22: '⨀',
-  23: '⨀',
-  32: '↑↑',
-  33: '↑↑',
-  36: '↑',
-  37: '↑',
-  40: '→',
-  41: '→',
-  132: '⇆',
-  133: '⇆',
-  138: '⨁',
-  139: '⨁',
-  140: '∆',
-  146: 'N',
-}
-
-export const nagGlyph = (nag: number): string => NAG_GLYPHS[nag] ?? '$' + nag
+export const moveNumber = (node: MoveNode): string =>
+  `${node.moveNumber}${node.color === 'white' ? '.' : '...'}`
 
 // "12. Nf3!", "12... Nf6", or without the number "Nf6"
 export function moveText(node: MoveNode, numbered: boolean): string {
-  const number = numbered ? `${node.moveNumber}${node.color === 'white' ? '.' : '...'} ` : ''
-  return number + node.san + node.nags.map(nagGlyph).join('')
+  const number = numbered ? `${moveNumber(node)} ` : ''
+  return (
+    number +
+    node.san +
+    nagInfos(node.nags)
+      .map(i => i.glyph)
+      .join('')
+  )
 }
 
 // Transient nodes are appended at the end of game.nodes, so discarding them is a truncation.

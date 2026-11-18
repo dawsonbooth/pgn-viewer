@@ -2,19 +2,22 @@ import { createRoot, createSignal } from 'solid-js'
 import { describe, expect, it } from 'vitest'
 import { parsePgnStream, type GameRecord } from './chess/pgn'
 import { createCursor, type Cursor } from './cursor'
-import { samplePgn } from './test-utils'
+import { annotatedPgn, samplePgn } from './test-utils'
 
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 // A cursor needs nothing but parsed games: no File, no IndexedDB, no engine.
-async function cursorOver(replyDelay?: number): Promise<{
+async function cursorOver(
+  replyDelay?: number,
+  pgn = samplePgn,
+): Promise<{
   c: Cursor
   select: (index: number) => void
   hideContinuations: () => void
   dispose: () => void
 }> {
   const games: GameRecord[] = []
-  await parsePgnStream(samplePgn, batch => games.push(...batch))
+  await parsePgnStream(pgn, batch => games.push(...batch))
   return createRoot(dispose => {
     const [index, setIndex] = createSignal(0)
     const [showContinuations, setShowContinuations] = createSignal(true)
@@ -105,6 +108,67 @@ describe('hidden continuations', () => {
     expect(c.id()).toBe(0)
     select(1)
     expect(c.node()?.san).toBe('e4')
+    dispose()
+  })
+})
+
+describe('lesson annotations', () => {
+  it('offers the hint the PGN gives for the move to find, until a move is made', async () => {
+    const { c, hideContinuations, dispose } = await cursorOver(10, annotatedPgn)
+    hideContinuations()
+    expect(c.hint()).toBe('Trade the queen for two rooks.')
+    expect(c.hintShown()).toBe(false)
+    c.showHint()
+    expect(c.hintShown()).toBe(true)
+    // a wrong move leaves the hint up, and the lesson's reply to it is on hand
+    c.play('a2', 'a3')
+    expect(c.hintShown()).toBe(true)
+    expect(c.wrongNote()).toBe('Black is winning. Try again.')
+    c.play('e2', 'e8')
+    expect(c.hintShown()).toBe(false)
+    dispose()
+  })
+
+  it("passes on the PGN's verdict when a listed wrong answer is played", async () => {
+    const { c, hideContinuations, dispose } = await cursorOver(10, annotatedPgn)
+    hideContinuations()
+    expect(c.play('e2', 'f1')).toEqual({ kind: 'accepted', san: 'Qf1' })
+    expect(c.feedback()).toEqual({ kind: 'match', san: 'Qf1', nags: [2] })
+    await wait(40)
+    expect(c.node()?.san).toBe('Qxc3')
+    dispose()
+  })
+
+  it('has no hint where the PGN gives none', async () => {
+    const { c, dispose } = await cursorOver()
+    c.showHint()
+    expect(c.hint()).toBeUndefined()
+    expect(c.hintShown()).toBe(false)
+    dispose()
+  })
+
+  it("takes the first move's hint from the game comment before it", async () => {
+    const { c, hideContinuations, dispose } = await cursorOver(
+      10,
+      '{ Find the fork. [%hint Look at c7.] [%wrong Not quite.] } 1. Nf3 Nf6 *',
+    )
+    hideContinuations()
+    expect(c.hint()).toBe('Look at c7.')
+    expect(c.wrongNote()).toBe('Not quite.')
+    dispose()
+  })
+
+  it('drops a refusal made while the reply was pending, so no reply text leaks', async () => {
+    const { c, hideContinuations, dispose } = await cursorOver(
+      10,
+      '1. e4 e5 2. Nf3 { [%wrong Develop the knight.] } Nc6 *',
+    )
+    hideContinuations()
+    c.play('e2', 'e4')
+    expect(c.play('d7', 'd5')).toEqual({ kind: 'rejected' })
+    await wait(40)
+    expect(c.node()?.san).toBe('e5')
+    expect(c.feedback()).toBeUndefined()
     dispose()
   })
 })

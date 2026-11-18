@@ -3,6 +3,7 @@ import { Board } from './components/Board'
 import { EnginePanel } from './components/EnginePanel'
 import { GameHeader } from './components/GameHeader'
 import { GameList } from './components/GameList'
+import { gamesColumn, GamesResizer } from './components/GamesResizer'
 import { IconClose } from './components/icons'
 import { ImportPanel } from './components/ImportPanel'
 import { MoveTree } from './components/MoveTree'
@@ -16,7 +17,7 @@ import { createViewer } from './viewer-state'
 const layout =
   'grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] ' +
   'max-lg:landscape:min-[600px]:grid-cols-[minmax(0,1fr)_minmax(280px,42%)] max-lg:landscape:min-[600px]:grid-rows-[minmax(0,1fr)] ' +
-  'lg:grid-cols-[252px_minmax(0,1fr)_minmax(340px,min(36vw,560px))] lg:grid-rows-[minmax(0,1fr)]'
+  'lg:grid-cols-[var(--games-column)_minmax(0,1fr)_minmax(340px,min(36vw,560px))] lg:grid-rows-[minmax(0,1fr)]'
 
 export function App() {
   const v = createViewer()
@@ -32,7 +33,8 @@ export function App() {
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return
+      // a focused control used the key, such as the games list's resize handle
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (!v.doc() || importing() || v.gamesOpen()) return
@@ -61,6 +63,8 @@ export function App() {
           return handled(v.toggleEngine)
         case 'v':
           return handled(v.toggleContinuations)
+        case 'h':
+          return handled(v.cursor.showHint)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -110,9 +114,10 @@ export function App() {
           />
         }
       >
-        <main class={layout}>
-          <aside class="games-pane hidden min-h-0 border-r border-rule bg-surface lg:flex">
+        <main class={layout} style={{ '--games-column': gamesColumn() }}>
+          <aside class="games-pane relative hidden min-h-0 border-r border-rule bg-surface lg:flex">
             <GameList viewer={v} />
+            <GamesResizer />
           </aside>
 
           <section
